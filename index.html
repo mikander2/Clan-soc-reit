@@ -108,10 +108,40 @@
   </div>
 
   <script>
-    // ВАЖНО: Мы читаем данные из ТОГО ЖЕ ключа, что и админ
-    let players = JSON.parse(localStorage.getItem('clan_scores')) || [];
+    // ВСТАВЬ СЮДА СВОЮ ССЫЛКУ (см. Шаг 4)
+    const sheetUrl = 'ВСТАВЬ_СЮДА_ССЫЛКУ_ИЗ_GOOGLE_SHEETS'; 
 
-    function renderTable() {
+    async function loadData() {
+      try {
+        const response = await fetch(sheetUrl);
+        const text = await response.text();
+        
+        // Google Sheets возвращает данные в формате JSONP, нужно вырезать лишнее
+        const jsonStr = text.replace(/^google.visualization.Query.setResponse$/, '').replace(/$;\$/, '');
+        const data = JSON.parse(jsonStr);
+        
+        const rows = data.table.rows;
+        const players = [];
+
+        rows.forEach(row => {
+          // row.c - это столбец A (name), row.c[1](https://wildandfreetools.com/blog/google-sheets-to-json/) - столбец B (score)
+          const name = row.c ? row.c.v : '';
+          const score = row.c[1](https://wildandfreetools.com/blog/google-sheets-to-json/) ? row.c[1](https://wildandfreetools.com/blog/google-sheets-to-json/).v : 0;
+
+          if (name) {
+            players.push({ name, score });
+          }
+        });
+
+        renderTable(players);
+
+      } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+        document.getElementById('emptyMsg').innerText = 'Не удалось загрузить данные. Проверьте консоль и ссылку на таблицу.';
+      }
+    }
+
+    function renderTable(players) {
       const tbody = document.getElementById('playersTableBody');
       const emptyMsg = document.getElementById('emptyMsg');
       tbody.innerHTML = '';
@@ -122,7 +152,7 @@
       }
       emptyMsg.style.display = 'none';
 
-      // Сортируем игроков по баллам (от большего к меньшему)
+      // Сортировка по баллам (от большего к меньшему)
       players.sort((a, b) => b.score - a.score);
 
       players.forEach((p, i) => {
@@ -136,14 +166,15 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="${rankClass}">${i + 1}</td>
-          <td>${safeName}</td>
-          <td style="text-align: right;"><strong>${p.score}</strong></td>
+          <td>\${safeName}</td>
+          <td style="text-align: right;"><strong>\${p.score}</strong></td>
         `;
         tbody.appendChild(tr);
       });
     }
 
-    renderTable();
+    loadData();
   </script>
+
 </body>
 </html>
