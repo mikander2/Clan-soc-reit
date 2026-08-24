@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Рейтинг клана | Только просмотр</title>
+  <style>
+    :root {
+      --bg-color: #121212;
+      --panel-bg: #1e1e2e;
+      --accent: #e94560;
+      --text: #f1e9d2;
+      --border: #333;
+      --rank-gold: #ffd700;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text);
+      margin: 0;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background-color: var(--panel-bg);
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      border: 1px solid var(--border);
+    }
+
+    h1 {
+      text-align: center;
+      color: var(--rank-gold);
+      text-shadow: 2px 2px 0px #000;
+      margin-bottom: 1.5rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+
+    th, td {
+      padding: 15px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      color: #888;
+      text-transform: uppercase;
+      font-size: 0.85rem;
+      background: rgba(255,255,255,0.05);
+    }
+
+    td:first-child {
+      font-weight: bold;
+      color: #4cc9f0; /* Цвет ников */
+      font-size: 1.1rem;
+    }
+
+    /* Стилизация мест (1, 2, 3) */
+    .rank-1 { color: #ffd700; font-weight: bold; }
+    .rank-2 { color: #c0c0c0; font-weight: bold; }
+    .rank-3 { color: #cd7f32; font-weight: bold; }
+
+    .empty-state {
+      text-align: center;
+      color: #666;
+      padding: 3rem;
+      font-style: italic;
+    }
+    
+    .note {
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 0.9rem;
+      color: #555;
+      border-top: 1px solid #333;
+      padding-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏆 Рейтинг социальных баллов</h1>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 50px;">#</th>
+          <th>Игрок (Ник)</th>
+          <th style="text-align: right;">Баллы</th>
+        </tr>
+      </thead>
+      <tbody id="playersTableBody">
+        <!-- Сюда JS добавит строки -->
+      </tbody>
+    </table>
+    
+    <p id="emptyMsg" class="empty-state">Рейтинг пока пуст. Следите за обновлениями!</p>
+    <p class="note">Данные обновляются лидером клана. Изменения могут появляться с задержкой.</p>
+  </div>
+
+  <script>
+    // ВАЖНО: Мы читаем данные из ТОГО ЖЕ ключа, что и админ
+    let players = JSON.parse(localStorage.getItem('clan_scores')) || [];
+
+    function renderTable() {
+      const tbody = document.getElementById('playersTableBody');
+      const emptyMsg = document.getElementById('emptyMsg');
+      tbody.innerHTML = '';
+
+      if (players.length === 0) {
+        emptyMsg.style.display = 'block';
+        return;
+      }
+      emptyMsg.style.display = 'none';
+
+      // Сортируем игроков по баллам (от большего к меньшему)
+      players.sort((a, b) => b.score - a.score);
+
+      players.forEach((p, i) => {
+        const rankClass = '';
+        if (i === 0) rankClass = 'rank-1';
+        else if (i === 1) rankClass = 'rank-2';
+        else if (i === 2) rankClass = 'rank-3';
+
+        const safeName = p.name.replace(/[&<>"]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[s]);
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="${rankClass}">${i + 1}</td>
+          <td>${safeName}</td>
+          <td style="text-align: right;"><strong>${p.score}</strong></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    renderTable();
+  </script>
+</body>
+</html>
