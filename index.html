@@ -112,10 +112,10 @@
   </div>
 
   <script>
-    // ВСТАВЬ СЮДА СВОЙ ID ТАБЛИЦЫ
+    // 1. ВСТАВЬ СЮДА СВОЙ ID ТАБЛИЦЫ (только буквы и цифры между /d/ и /edit)
     const spreadsheetId = '1UeAfbF_jFYWSj1GXLRu7apR7uUZHK12jY-FBSJOH1IM';
     
-    // Название листа (вкладки) в твоей таблице. Обычно это "Лист1" или "Sheet1"
+    // 2. Название листа (вкладки) внизу таблицы. Должно совпадать буква в букву!
     const sheetName = 'Лист1'; 
 
     async function loadData() {
@@ -123,28 +123,28 @@
       const errorBox = document.getElementById('errorBox');
       
       try {
-        // Формируем ссылку на экспорт данных в формате JSON
+        // Используем старый, но самый надежный метод для публичных таблиц
         const url = `https://spreadsheets.google.com/feeds/list/${spreadsheetId}/${sheetName}/public/values?alt=json`;
         
         const response = await fetch(url);
         
         if (!response.ok) {
-          throw new Error(`Ошибка HTTP: \${response.status}`);
+          throw new Error(`Ошибка доступа: \${response.status}. Проверь, что таблица открыта на "Читатель".`);
         }
 
         const data = await response.json();
         const entries = data.feed.entry;
 
         if (!entries || entries.length === 0) {
-          throw new Error('В таблице нет данных');
+          throw new Error('В таблице нет данных или неверно указано имя листа.');
         }
 
-        // Очищаем таблицу и заполняем новыми данными
+        // Очищаем таблицу
         tbody.innerHTML = '';
 
-        // Сортируем по баллам (предполагаем, что колонка баллов называется 'баллы' или 'points')
-        // Google Sheets делает ключи в нижнем регистре и заменяет пробелы на _
-        // Если у тебя колонка называется "Баллы", ключ будет 'баллы'
+        // Сортируем по баллам (от большего к меньшему)
+        // ВАЖНО: Ключи формируются из заголовков столбцов в нижнем регистре.
+        // Если в таблице заголовок "Баллы", ключ будет 'gsx\$баллы'
         const sortedEntries = entries.sort((a, b) => {
           const scoreA = parseInt(a['gsx$баллы']?.$t || 0);
           const scoreB = parseInt(b['gsx$баллы']?.$t || 0);
@@ -153,10 +153,10 @@
 
         sortedEntries.forEach((entry, index) => {
           const rank = index + 1;
-          const name = entry['gsx$игрок']?.$t || 'Неизвестный';
+          // Ищем ник. Если в таблице колонка "Игрок", ключ 'gsx$игрок'. Если "Ник" - 'gsx$ник'
+          const name = entry['gsx$игрок']?.$t || entry['gsx$ник']?.$t || 'Неизвестный';
           const score = entry['gsx$баллы']?.$t || 0;
           
-          // Добавляем классы для медалей
           let rankClass = '';
           if (rank === 1) rankClass = 'rank-1';
           if (rank === 2) rankClass = 'rank-2';
@@ -175,8 +175,8 @@
       } catch (error) {
         console.error(error);
         errorBox.style.display = 'block';
-        errorBox.textContent = 'Ошибка загрузки: ' + error.message + '. Проверь консоль (F12).';
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #ff5555;">Не удалось загрузить данные</td></tr>';
+        errorBox.textContent = 'Ошибка: ' + error.message;
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #ff5555;">Не удалось загрузить данные. Смотри консоль (F12).</td></tr>';
       }
     }
 
