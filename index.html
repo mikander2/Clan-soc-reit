@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Рейтинг клана | Только просмотр</title>
+  <title>Рейтинг клана | Clan Soc Reit</title>
   <style>
     :root {
       --bg-color: #121212;
@@ -60,22 +60,24 @@
 
     td:first-child {
       font-weight: bold;
-      color: #4cc9f0; /* Цвет ников */
+      color: #4cc9f0;
       font-size: 1.1rem;
     }
 
-    /* Стилизация мест (1, 2, 3) */
     .rank-1 { color: #ffd700; font-weight: bold; }
     .rank-2 { color: #c0c0c0; font-weight: bold; }
     .rank-3 { color: #cd7f32; font-weight: bold; }
 
-    .empty-state {
+    .error-msg {
+      color: #ff5555;
       text-align: center;
-      color: #666;
-      padding: 3rem;
-      font-style: italic;
+      padding: 1rem;
+      background: rgba(233, 69, 96, 0.1);
+      border-radius: 8px;
+      margin-top: 1rem;
+      font-weight: bold;
     }
-    
+
     .note {
       margin-top: 1rem;
       text-align: center;
@@ -99,82 +101,12 @@
         </tr>
       </thead>
       <tbody id="playersTableBody">
-        <!-- Сюда JS добавит строки -->
+        <tr>
+          <td colspan="3" style="text-align: center;">Загрузка данных...</td>
+        </tr>
       </tbody>
     </table>
     
-    <p id="emptyMsg" class="empty-state">Рейтинг пока пуст. Следите за обновлениями!</p>
-    <p class="note">Данные обновляются лидером клана. Изменения могут появляться с задержкой.</p>
+    <div id="errorBox" class="error-msg" style="display: none;"></div>
+    <p class="note">Данные берутся из Google Таблицы. Обновление может занять до 5 минут.</p>
   </div>
-
-  <script>
-    // ВСТАВЬ СЮДА СВОЮ ССЫЛКУ (см. Шаг 4)
-    const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTbOku0lQIfP0W0Yc8SUi5n9a33OCGtRLDziAydd6BsMWLaq3XuXEL3TNBiw4nM1GlvAnm0t8rTFiYR/gviz/tq?tqx=out:json '; 
-
-    async function loadData() {
-      try {
-        const response = await fetch(sheetUrl);
-        const text = await response.text();
-        
-        // Google Sheets возвращает данные в формате JSONP, нужно вырезать лишнее
-        const jsonStr = text.replace(/^google.visualization.Query.setResponse$/, '').replace(/$;\$/, '');
-        const data = JSON.parse(jsonStr);
-        
-        const rows = data.table.rows;
-        const players = [];
-
-        rows.forEach(row => {
-          // row.c - это столбец A (name), row.c[1](https://wildandfreetools.com/blog/google-sheets-to-json/) - столбец B (score)
-          const name = row.c ? row.c.v : '';
-          const score = row.c[1](https://wildandfreetools.com/blog/google-sheets-to-json/) ? row.c[1](https://wildandfreetools.com/blog/google-sheets-to-json/).v : 0;
-
-          if (name) {
-            players.push({ name, score });
-          }
-        });
-
-        renderTable(players);
-
-      } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
-        document.getElementById('emptyMsg').innerText = 'Не удалось загрузить данные. Проверьте консоль и ссылку на таблицу.';
-      }
-    }
-
-    function renderTable(players) {
-      const tbody = document.getElementById('playersTableBody');
-      const emptyMsg = document.getElementById('emptyMsg');
-      tbody.innerHTML = '';
-
-      if (players.length === 0) {
-        emptyMsg.style.display = 'block';
-        return;
-      }
-      emptyMsg.style.display = 'none';
-
-      // Сортировка по баллам (от большего к меньшему)
-      players.sort((a, b) => b.score - a.score);
-
-      players.forEach((p, i) => {
-        const rankClass = '';
-        if (i === 0) rankClass = 'rank-1';
-        else if (i === 1) rankClass = 'rank-2';
-        else if (i === 2) rankClass = 'rank-3';
-
-        const safeName = p.name.replace(/[&<>"]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[s]);
-        
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="${rankClass}">${i + 1}</td>
-          <td>\${safeName}</td>
-          <td style="text-align: right;"><strong>\${p.score}</strong></td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    loadData();
-  </script>
-
-</body>
-</html>
