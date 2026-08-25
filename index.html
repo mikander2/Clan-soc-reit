@@ -112,10 +112,10 @@
   </div>
 
   <script>
-    // 1. ВСТАВЬ СЮДА СВОЙ ID ТАБЛИЦЫ (только буквы и цифры между /d/ и /edit)
+    // ВСТАВЬ СЮДА СВОЙ ID ТАБЛИЦЫ (только буквы и цифры)
     const spreadsheetId = '1UeAfbF_jFYWSj1GXLRu7apR7uUZHK12jY-FBSJOH1IM';
     
-    // 2. Название листа (вкладки) внизу таблицы. Должно совпадать буква в букву!
+    // ВАЖНО: Если в таблице вкладка называется "Sheet1" (на английском), поменяй 'Лист1' на 'Sheet1'
     const sheetName = 'Лист1'; 
 
     async function loadData() {
@@ -123,39 +123,43 @@
       const errorBox = document.getElementById('errorBox');
       
       try {
-        // Используем старый, но самый надежный метод для публичных таблиц
+        // Формируем ссылку
         const url = `https://spreadsheets.google.com/feeds/list/${spreadsheetId}/${sheetName}/public/values?alt=json`;
         
         const response = await fetch(url);
         
         if (!response.ok) {
-          throw new Error(`Ошибка доступа: \${response.status}. Проверь, что таблица открыта на "Читатель".`);
+          if (response.status === 404) {
+            throw new Error('Ошибка 404: Неверный ID таблицы или НЕВЕРНОЕ имя листа. Проверь вкладку внизу таблицы!');
+          }
+          if (response.status === 403) {
+            throw new Error('Ошибка 403: Таблица не открыта на "Читатель".');
+          }
+          throw new Error(`Ошибка доступа: \${response.status}`);
         }
 
         const data = await response.json();
         const entries = data.feed.entry;
 
         if (!entries || entries.length === 0) {
-          throw new Error('В таблице нет данных или неверно указано имя листа.');
+          throw new Error('В таблице есть лист, но нет данных (строк) или заголовки пустые.');
         }
 
-        // Очищаем таблицу
         tbody.innerHTML = '';
 
-        // Сортируем по баллам (от большего к меньшему)
-        // ВАЖНО: Ключи формируются из заголовков столбцов в нижнем регистре.
-        // Если в таблице заголовок "Баллы", ключ будет 'gsx\$баллы'
+        // Сортировка по баллам
         const sortedEntries = entries.sort((a, b) => {
-          const scoreA = parseInt(a['gsx$баллы']?.$t || 0);
-          const scoreB = parseInt(b['gsx$баллы']?.$t || 0);
+          // Пробуем найти колонку "баллы" (кириллица) или "points" (латиница)
+          const scoreA = parseInt(a['gsx$баллы']?.$t || a['gsx$points']?.$t || 0);
+          const scoreB = parseInt(b['gsx$баллы']?.$t || b['gsx$points']?.$t || 0);
           return scoreB - scoreA;
         });
 
         sortedEntries.forEach((entry, index) => {
           const rank = index + 1;
-          // Ищем ник. Если в таблице колонка "Игрок", ключ 'gsx$игрок'. Если "Ник" - 'gsx$ник'
-          const name = entry['gsx$игрок']?.$t || entry['gsx$ник']?.$t || 'Неизвестный';
-          const score = entry['gsx$баллы']?.$t || 0;
+          // Ищем ник: пробуем "игрок", "ник", "name"
+          const name = entry['gsx$игрок']?.$t || entry['gsx$ник']?.$t || entry['gsx$name']?.$t || 'Неизвестный';
+          const score = entry['gsx$баллы']?.$t || entry['gsx$points']?.$t || 0;
           
           let rankClass = '';
           if (rank === 1) rankClass = 'rank-1';
@@ -176,7 +180,7 @@
         console.error(error);
         errorBox.style.display = 'block';
         errorBox.textContent = 'Ошибка: ' + error.message;
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #ff5555;">Не удалось загрузить данные. Смотри консоль (F12).</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #ff5555;">' + error.message + '</td></tr>';
       }
     }
 
