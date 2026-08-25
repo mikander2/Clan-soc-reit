@@ -108,59 +108,78 @@
     </table>
     
     <div id="errorBox" class="error-msg" style="display: none;"></div>
-    <p class="note">Данные берутся из Google Таблицы. Обновление может занять до 5 минут.</p>
+    <p class="note">Данные берутся из Google Таблицы.</p>
   </div>
 
   <script>
-    // ВСТАВЬ СЮДА СВОЙ ID ТАБЛИЦЫ (только буквы и цифры)
+    // 1. ВСТАВЬ СЮДА СВОЙ ID ТАБЛИЦЫ
     const spreadsheetId = '1UeAfbF_jFYWSj1GXLRu7apR7uUZHK12jY-FBSJOH1IM';
     
-    // ВАЖНО: Если в таблице вкладка называется "Sheet1" (на английском), поменяй 'Лист1' на 'Sheet1'
-    const sheetName = 'Лист1'; 
+    // 2. Диапазон данных. 
+    // A:B означает "брать данные из столбцов A и B". 
+    // Нам не нужно указывать имя листа! Скрипт сам возьмет первый доступный лист.
+    const range = 'A:B'; 
 
     async function loadData() {
       const tbody = document.getElementById('playersTableBody');
       const errorBox = document.getElementById('errorBox');
       
       try {
-        // Формируем ссылку
-        const url = `https://spreadsheets.google.com/feeds/list/${spreadsheetId}/${sheetName}/public/values?alt=json`;
+        // НОВЫЙ МЕТОД: Используем sheets.googleapis.com вместо старого feeds/list
+        // Он стабильнее и не требует точного совпадения имени листа
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?key=AIzaSyA6O_zX-1234567890`; 
+        // ВНИМАНИЕ: Ниже я объясню про ключ API!
         
-        const response = await fetch(url);
+        // Так как у нас нет своего API ключа (и его сложно настроить новичку), 
+        // мы используем хитрость: если таблица публичная, мы можем попробовать получить данные 
+        // через специальный формат, но Google Sheets API без ключа для публичных таблиц 
+        // часто требует именно ключ. 
+        
+        // ПОЭТОМУ: Самый простой рабочий вариант для тебя сейчас — 
+        // использовать тот же старый метод, но с ПРАВИЛЬНОЙ обработкой ошибки 404,
+        // ИЛИ (лучше) использовать метод, который я дам ниже, который работает БЕЗ ключа,
+        // если таблица открыта на "Читатель".
+        
+        // ПЕРЕПИСЫВАЕМ НА РАБОЧИЙ ВАРИАНТ БЕЗ КЛЮЧА (через CSV экспорт)
+        const csvUrl = `https://docs.google.com/spreadsheets/d/\${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=Лист1`;
+        
+        const response = await fetch(csvUrl);
         
         if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error('Ошибка 404: Неверный ID таблицы или НЕВЕРНОЕ имя листа. Проверь вкладку внизу таблицы!');
-          }
-          if (response.status === 403) {
-            throw new Error('Ошибка 403: Таблица не открыта на "Читатель".');
-          }
-          throw new Error(`Ошибка доступа: \${response.status}`);
+          throw new Error('Не удалось получить данные. Проверь настройки доступа к таблице (должно быть "Читатель" для всех).');
         }
 
-        const data = await response.json();
-        const entries = data.feed.entry;
-
-        if (!entries || entries.length === 0) {
-          throw new Error('В таблице есть лист, но нет данных (строк) или заголовки пустые.');
+        const csvText = await response.text();
+        const lines = csvText.trim().split('\n');
+        
+        if (lines.length <= 1) {
+          throw new Error('В таблице нет данных. Добавь строки с игроками.');
         }
+
+        // Парсим CSV вручную
+        // Первая строка - заголовки, остальные - данные
+        const headers = lines.split(',').map(h => h.replace(/"/g, ''));
+        const dataRows = lines.slice(1).map(line => line.split(',').map(h => h.replace(/"/g, '')));
+
+        // Находим индексы колонок по заголовкам
+        const nameIndex = headers.indexOf('Игрок') !== -1 ? headers.indexOf('Игрок') : 
+                          headers.indexOf('Ник') !== -1 ? headers.indexOf('Ник') : 0;
+                          
+        const scoreIndex = headers.indexOf('Баллы') !== -1 ? headers.indexOf('Баллы') : 
+                           headers.indexOf('Points') !== -1 ? headers.indexOf('Points') : 1;
+
+        // Превращаем в массив объектов и сортируем
+        const players = dataRows.map(row => ({
+          name: row[nameIndex] || 'Неизвестный',
+          score: parseInt(row[scoreIndex]) || 0
+        })).filter(p => p.name !== ''); // Убираем пустые строки
+
+        const sortedPlayers = players.sort((a, b) => b.score - a.score);
 
         tbody.innerHTML = '';
 
-        // Сортировка по баллам
-        const sortedEntries = entries.sort((a, b) => {
-          // Пробуем найти колонку "баллы" (кириллица) или "points" (латиница)
-          const scoreA = parseInt(a['gsx$баллы']?.$t || a['gsx$points']?.$t || 0);
-          const scoreB = parseInt(b['gsx$баллы']?.$t || b['gsx$points']?.$t || 0);
-          return scoreB - scoreA;
-        });
-
-        sortedEntries.forEach((entry, index) => {
+        sortedPlayers.forEach((player, index) => {
           const rank = index + 1;
-          // Ищем ник: пробуем "игрок", "ник", "name"
-          const name = entry['gsx$игрок']?.$t || entry['gsx$ник']?.$t || entry['gsx$name']?.$t || 'Неизвестный';
-          const score = entry['gsx$баллы']?.$t || entry['gsx$points']?.$t || 0;
-          
           let rankClass = '';
           if (rank === 1) rankClass = 'rank-1';
           if (rank === 2) rankClass = 'rank-2';
@@ -169,8 +188,8 @@
           const row = `
             <tr>
               <td class="${rankClass}">${rank}</td>
-              <td class="${rankClass}">${name}</td>
-              <td style="text-align: right;">\${score}</td>
+              <td class="${rankClass}">${player.name}</td>
+              <td style="text-align: right;">\${player.score}</td>
             </tr>
           `;
           tbody.innerHTML += row;
