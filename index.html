@@ -110,3 +110,77 @@
     <div id="errorBox" class="error-msg" style="display: none;"></div>
     <p class="note">Данные берутся из Google Таблицы. Обновление может занять до 5 минут.</p>
   </div>
+
+  <script>
+    // ВСТАВЬ СЮДА СВОЙ ID ТАБЛИЦЫ
+    const spreadsheetId = '1UeAfbF_jFYWSj1GXLRu7apR7uUZHK12jY-FBSJOH1IM';
+    
+    // Название листа (вкладки) в твоей таблице. Обычно это "Лист1" или "Sheet1"
+    const sheetName = 'Лист1'; 
+
+    async function loadData() {
+      const tbody = document.getElementById('playersTableBody');
+      const errorBox = document.getElementById('errorBox');
+      
+      try {
+        // Формируем ссылку на экспорт данных в формате JSON
+        const url = `https://spreadsheets.google.com/feeds/list/${spreadsheetId}/${sheetName}/public/values?alt=json`;
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`Ошибка HTTP: \${response.status}`);
+        }
+
+        const data = await response.json();
+        const entries = data.feed.entry;
+
+        if (!entries || entries.length === 0) {
+          throw new Error('В таблице нет данных');
+        }
+
+        // Очищаем таблицу и заполняем новыми данными
+        tbody.innerHTML = '';
+
+        // Сортируем по баллам (предполагаем, что колонка баллов называется 'баллы' или 'points')
+        // Google Sheets делает ключи в нижнем регистре и заменяет пробелы на _
+        // Если у тебя колонка называется "Баллы", ключ будет 'баллы'
+        const sortedEntries = entries.sort((a, b) => {
+          const scoreA = parseInt(a['gsx$баллы']?.$t || 0);
+          const scoreB = parseInt(b['gsx$баллы']?.$t || 0);
+          return scoreB - scoreA;
+        });
+
+        sortedEntries.forEach((entry, index) => {
+          const rank = index + 1;
+          const name = entry['gsx$игрок']?.$t || 'Неизвестный';
+          const score = entry['gsx$баллы']?.$t || 0;
+          
+          // Добавляем классы для медалей
+          let rankClass = '';
+          if (rank === 1) rankClass = 'rank-1';
+          if (rank === 2) rankClass = 'rank-2';
+          if (rank === 3) rankClass = 'rank-3';
+
+          const row = `
+            <tr>
+              <td class="${rankClass}">${rank}</td>
+              <td class="${rankClass}">${name}</td>
+              <td style="text-align: right;">\${score}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
+
+      } catch (error) {
+        console.error(error);
+        errorBox.style.display = 'block';
+        errorBox.textContent = 'Ошибка загрузки: ' + error.message + '. Проверь консоль (F12).';
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #ff5555;">Не удалось загрузить данные</td></tr>';
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
